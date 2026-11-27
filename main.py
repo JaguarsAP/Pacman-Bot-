@@ -1,107 +1,72 @@
-### py -3.13 main.py
-import cv2
-from collections import deque
-import gymnasium as gym
-import ale_py
+from minatar import Environment
 import numpy as np
-
-# Register Atari environments
-gym.register_envs(ale_py)
-
-
-def preprocess_frame(observation):
-
-    # Converting our RGB image to grayscale
-    gray = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
-
-    # Resize to 84 x 84 <-- need this for neural network Processing
-    resized = cv2.resize(gray, (84, 84), interpolation=cv2.INTER_AREA)
-
-    return resized
-
-
-###Frame Initialization :D   
-
-class FrameStack:
-
-    def __init__(self, num_frames=4):
-
-        self.num_frames = num_frames
-
-        # Store the most recent frames
-        self.frames = deque(maxlen=num_frames)
-
-
-    def reset(self, observation):
-
-        # Preprocess initial observation
-        frame = preprocess_frame(observation)
-
-        # Initially duplicate the first frame
-        for _ in range(self.num_frames):
-            self.frames.append(frame)
-
-        return self.get_state()
-
-
-    def add_frame(self, observation):
-
-        # Preprocess new observation
-        frame = preprocess_frame(observation)
-
-        # Automatically removes oldest frame when full
-        self.frames.append(frame)
-
-        return self.get_state()
-
-
-    def get_state(self):
-
-        # Combine frames into one state
-        return np.stack(self.frames, axis=0)
+RENDER = False
 
 def main():
 
-    env = gym.make(
-        "ALE/Pacman-v5",
-        render_mode="human"
-    )
+    # Initialize Asterix
+    env = Environment("asterix")
 
-    frame_stack = FrameStack(num_frames=4)
+    # Set random seeds
+    env.seed(42)
+    rng = np.random.default_rng(42)
 
-    observation, info = env.reset(seed=42)
+    # Reset environment
+    env.reset()
 
-    # Initialize our first state
-    state = frame_stack.reset(observation)
+    # Get initial state
+    state = env.state()
 
-    print("Initial state shape:", state.shape)
-    print("Data type:", state.dtype)
-    print("Minimum pixel:", state.min())
-    print("Maximum pixel:", state.max())
+    # Get available actions
+    actions = env.minimal_action_set()
+
+    print("=== Environment Information ===")
+    print("Observation shape:", state.shape)
+    print("Observation type:", state.dtype)
+    print("Available actions:", actions)
+    print("Number of actions:", len(actions))
+    print("Minimum value:", state.min())
+    print("Maximum value:", state.max())
+
+    episode = 1
+    episode_reward = 0
+    episode_steps = 0
 
     for step in range(1000):
 
-        # Temporary random action
-        action = env.action_space.sample()
+        # Display the current game state
+        if RENDER:
+            env.display_state(50)
 
-        observation, reward, terminated, truncated, info = env.step(action)
+        # Select a random action
+        action = int(rng.choice(actions))
 
-        # Process the new observation
-        next_state = frame_stack.add_frame(observation)
+        # Execute action
+        reward, terminated = env.act(action)
+
+        # Retrieve updated state
+        next_state = env.state()
+
+        episode_reward += reward
+        episode_steps += 1
 
         state = next_state
 
-        if terminated or truncated:
+        if terminated:
 
-            observation, info = env.reset()
+            print(
+                f"Episode {episode} | "
+                f"Reward: {episode_reward} | "
+                f"Steps: {episode_steps}"
+            )
 
-            state = frame_stack.reset(observation)
+            episode += 1
+            episode_reward = 0
+            episode_steps = 0
 
-    env.close()
+            env.reset()
+            state = env.state()
 
 
 if __name__ == "__main__":
     main()
-
-
-

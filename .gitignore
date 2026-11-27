@@ -1,0 +1,15 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Trained models
+checkpoints/*
+*.pt
+*.pth
+
+# IDE settings
+.vscode/
